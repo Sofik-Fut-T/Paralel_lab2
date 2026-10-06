@@ -1,0 +1,72 @@
+#include <iostream>
+#include <future>
+#include <cmath>
+#include <chrono>
+
+bool isPrime(long long n) {
+    if (n <= 1) return false;
+    for (long long i = 2; i * i <= n; ++i) {
+        if (n % i == 0) return false;
+    }
+    return true;
+}
+
+long long getNthPrime(int n) {
+    int count = 0;
+    long long num = 1;
+    while (count < n) {
+        num++;
+        if (isPrime(num)) {
+            count++;
+        }
+    }
+    return num;
+}
+
+int main() {
+    int n;
+    std::cout << "Введіть номер простого числа (n): ";
+    std::cin >> n;
+
+    // --- ТЕСТ 1: std::launch::deferred ---
+    std::cout << "\n=== ТЕСТ 1: std::launch::deferred ===\n";
+    auto start1 = std::chrono::high_resolution_clock::now();
+    
+    std::future<long long> f_deferred = std::async(std::launch::deferred, getNthPrime, n);
+
+    std::cout << "Виберіть математичну функцію (1 - sqrt, 2 - sin, 3 - log): ";
+    int choice;
+    std::cin >> choice;
+    double math_res = 0;
+    if (choice == 1) math_res = std::sqrt(n);
+    else if (choice == 2) math_res = std::sin(n);
+    else math_res = std::log(n);
+    std::cout << "Результат математичної функції від " << n << ": " << math_res << "\n";
+
+    long long prime1 = f_deferred.get(); // Обчислення почнуться тільки ТУТ
+    auto end1 = std::chrono::high_resolution_clock::now();
+    std::cout << n << "-не просте число: " << prime1 << "\n";
+    std::cout << "Час виконання (deferred): " 
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end1 - start1).count() << " мс\n";
+
+    // --- ТЕСТ 2: std::launch::async ---
+    std::cout << "\n=== ТЕСТ 2: std::launch::async ===\n";
+    auto start2 = std::chrono::high_resolution_clock::now();
+
+    std::future<long long> f_async = std::async(std::launch::async, getNthPrime, n);
+
+    std::cout << "Виберіть математичну функцію (1 - sqrt, 2 - sin, 3 - log): ";
+    std::cin >> choice;
+    if (choice == 1) math_res = std::sqrt(n);
+    else if (choice == 2) math_res = std::sin(n);
+    else math_res = std::log(n);
+    std::cout << "Результат математичної функції від " << n << ": " << math_res << "\n";
+
+    long long prime2 = f_async.get(); // Просто забираємо вже готовий або майже готовий результат
+    auto end2 = std::chrono::high_resolution_clock::now();
+    std::cout << n << "-не просте число: " << prime2 << "\n";
+    std::cout << "Час виконання (async): " 
+              << std::chrono::duration_cast<std::chrono::milliseconds>(end2 - start2).count() << " мс\n";
+
+    return 0;
+}
