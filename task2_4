@@ -1,0 +1,71 @@
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <queue>
+#include <condition_variable>
+
+std::queue<int> data_queue;
+std::mutex m;
+std::condition_variable cv;
+bool done = false;
+
+bool isPrime(int n) {
+    if (n <= 1) return false;
+    for (int i = 2; i * i <= n; ++i) {
+        if (n % i == 0) return false;
+    }
+    return true;
+}
+
+void DataPreparation() {
+    std::cout << "Введіть цілі числа (введіть -1 для завершення):\n";
+    int val;
+    while (std::cin >> val && val != -1) {
+        {
+            std::lock_guard<std::mutex> lk(m);
+            data_queue.push(val);
+        }
+        cv.notify_one();
+    }
+    {
+        std::lock_guard<std::mutex> lk(m);
+        done = true;
+    }
+    cv.notify_all();
+    std::cout << "[DataPreparation] Введення завершено.\n";
+}
+
+void DataProcessing() {
+    while (true) {
+        std::unique_lock<std::mutex> lk(m);
+        cv.wait(lk, [] { return !data_queue.empty() || done; });
+
+        while (!data_queue.empty()) {
+            int num = data_queue.front();
+            data_queue.pop();
+            lk.unlock();
+
+            if (isPrime(num)) {
+                std::cout << "[DataProcessing] " << num << " - просте число\n";
+            } else {
+                std::cout << "[DataProcessing] " << num << " - не просте число\n";
+            }
+
+            lk.lock();
+        }
+
+        if (done && data_queue.empty()) {
+            break;
+        }
+    }
+}
+
+int main() {
+    std::thread t1(DataPreparation);
+    t1.detach();
+
+    std::thread t2(DataProcessing);
+    t2.join();
+
+    return 0;
+}
