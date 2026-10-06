@@ -1,0 +1,67 @@
+#include <iostream>
+#include <thread>
+#include <future>
+#include <cmath>
+#include <chrono>
+
+bool isPrime(long long n) {
+    if (n <= 1) return false;
+    for (long long i = 2; i * i <= n; ++i) {
+        if (n % i == 0) return false;
+    }
+    return true;
+}
+
+long long getNthPrime(int n) {
+    int count = 0;
+    long long num = 1;
+    while (count < n) {
+        num++;
+        if (isPrime(num)) count++;
+    }
+    return num;
+}
+
+void Thread1(int n, std::promise<long long> prom1, std::promise<bool> bool_prom, std::promise<long long> prom2) {
+    long long prime_n = getNthPrime(n);
+    prom1.set_value(prime_n);
+
+    bool_prom.set_value(true); // Сигнал для другого потоку
+
+    long long prime_10n = getNthPrime(n * 10);
+    prom2.set_value(prime_10n);
+}
+
+void Thread2(int n, std::future<bool> bool_fut) {
+    bool signal = bool_fut.get(); // Чекаємо сигнал від Першого потоку
+    if (signal) {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        double sqrt_val = std::sqrt(n);
+        std::cout << "[Thread2] Квадратний корінь з " << n << " дорівнює: " << sqrt_val << "\n";
+    }
+}
+
+int main() {
+    int n;
+    std::cout << "Введіть n: ";
+    std::cin >> n;
+
+    std::promise<long long> prom1;
+    std::promise<bool> bool_prom;
+    std::promise<long long> prom2;
+
+    std::future<long long> fut1 = prom1.get_future();
+    std::future<bool> bool_fut = bool_prom.get_future();
+    std::future<long long> fut2 = prom2.get_future();
+
+    std::thread t1(Thread1, n, std::move(prom1), std::move(bool_prom), std::move(prom2));
+    std::thread t2(Thread2, n, std::move(bool_fut));
+
+    std::cout << "[Main] " << n << "-не просте число: " << fut1.get() << "\n";
+    std::cout << "[Main] " << (n * 10) << "-те просте число: " << fut2.get() << "\n";
+
+    t1.join();
+    t2.join();
+
+    return 0;
+}
